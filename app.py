@@ -468,12 +468,43 @@ def send_telegram():
 
 # Generate links and subscription content
 async def generate_links(argo_domain):
-    meta_info = subprocess.run(['curl', '-s', 'https://speed.cloudflare.com/meta'], capture_output=True, text=True)
-    meta_info = meta_info.stdout.split('"')
-    ISP = f"{meta_info[25]}-{meta_info[17]}".replace(' ', '_').strip()
+    # 获取 meta 信息
+    meta_raw = subprocess.run(
+        ['curl', '-s', 'https://speed.cloudflare.com/meta'],
+        capture_output=True, text=True
+    ).stdout
+    
+    meta_info = meta_raw.split('"')
 
+    # ---- 防止 IndexError ----
+    def safe(arr, idx, default="unknown"):
+        if isinstance(arr, list) and idx < len(arr):
+            value = arr[idx]
+            if value.strip():
+                return value
+        return default
+    
+    ISP = f"{safe(meta_info, 25)}-{safe(meta_info, 17)}".replace(' ', '_').strip()
+
+    # ---- 下面保持原样 ----
     time.sleep(2)
-    VMESS = {"v": "2", "ps": f"{NAME}-{ISP}", "add": CFIP, "port": CFPORT, "id": UUID, "aid": "0", "scy": "none", "net": "ws", "type": "none", "host": argo_domain, "path": "/vmess-argo?ed=2560", "tls": "tls", "sni": argo_domain, "alpn": "", "fp": "chrome"}
+    VMESS = {
+        "v": "2",
+        "ps": f"{NAME}-{ISP}",
+        "add": CFIP,
+        "port": CFPORT,
+        "id": UUID,
+        "aid": "0",
+        "scy": "none",
+        "net": "ws",
+        "type": "none",
+        "host": argo_domain,
+        "path": "/vmess-argo?ed=2560",
+        "tls": "tls",
+        "sni": argo_domain,
+        "alpn": "",
+        "fp": "chrome"
+    }
  
     list_txt = f"""
 vless://{UUID}@{CFIP}:{CFPORT}?encryption=none&security=tls&sni={argo_domain}&fp=chrome&type=ws&host={argo_domain}&path=%2Fvless-argo%3Fed%3D2560#{NAME}-{ISP}
@@ -491,14 +522,13 @@ trojan://{UUID}@{CFIP}:{CFPORT}?security=tls&sni={argo_domain}&fp=chrome&type=ws
         sub_file.write(sub_txt)
         
     print(sub_txt)
-    
     print(f"{FILE_PATH}/sub.txt saved successfully")
     
-    # Additional actions
     send_telegram()
     upload_nodes()
   
-    return sub_txt   
+    return sub_txt
+ 
  
 # Add automatic access task
 def add_visit_task():
